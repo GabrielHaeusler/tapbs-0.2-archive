@@ -9,7 +9,7 @@ authors:
   - family-names: Sakalli
     given-names: Ilkay
     affiliation: Freie Universität Berlin
-repository-code: "https://github.com/<your-org>/tapbs-0.2-archive"
+repository-code: "https://github.com/GabrielHaeusler/tapbs-0.2-archive"
 license: "GPL-2.0-or-later"
 keywords:
   - Poisson–Boltzmann
