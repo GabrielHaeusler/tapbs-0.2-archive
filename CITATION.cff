@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+title: "TAPBS 0.2"
+message: "If you use this software or results derived from it, please cite the original authors and the archival DOI."
+type: software
+authors:
+  - family-names: Kieseritzky
+    given-names: Gernot
+    affiliation: Freie Universität Berlin
+  - family-names: Sakalli
+    given-names: Ilkay
+    affiliation: Freie Universität Berlin
+repository-code: "https://github.com/<your-org>/tapbs-0.2-archive"
+license: "GPL-2.0-or-later"
+keywords:
+  - Poisson–Boltzmann
+  - APBS
+  - continuum electrostatics
+  - pKa
+  - redox
+  - protein
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.TBD"  # replace after Zenodo deposit
+references:
+  - type: article
+    title: "Optimizing pKa computation in proteins with pH-adapted conformations (PACs)"
+    authors:
+      - family-names: Kieseritzky
+        given-names: Gernot
+      - family-names: Knapp
+        given-names: Ernst-Walter
+    year: 2007
+    journal: "Proteins: Structure, Function, and Bioinformatics"
+    volume: "71"
+    issue: "3"
+    start: "1335"
+    end: "1348"
+    doi: "10.1002/prot.21820"
+  - type: misc
+    title: "APBS 1.3: Adaptive Poisson–Boltzmann Solver"
+    authors:
+      - family-names: Baker
+        given-names: Nathan A.
+    year: 2001
+    notes: "Referenced in TAPBS manual as the external LPBE solver."

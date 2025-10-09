@@ -1,0 +1,36 @@
+pqr barnase.pqr
+sites barnase.sites
+output test
+bcfl sdh
+pdie 4.0
+sdie 80.0
+temperature 300
+ion -1.0 0.1 2.00
+ion 1.0 0.1 2.00
+srfm mol
+srad 1.4
+sdens 3.0
+chgm spl2
+
+dimension_of_protein_grid 65 65 65
+spacing_of_protein_grid 2.46 2.46 2.46
+center_of_protein_grid oncent
+dimension_of_protein_grid 65 65 65
+spacing_of_protein_grid 1.00 1.00 1.00
+center_of_protein_grid oncent
+dimension_of_protein_grid 65 65 65
+spacing_of_protein_grid 0.25 0.25 0.25
+center_of_protein_grid onsite
+
+dimension_of_model_grid 65 65 65
+spacing_of_model_grid 1.0 1.0 1.0
+center_of_model_grid onsite
+dimension_of_model_grid 65 65 65
+spacing_of_model_grid 0.25 0.25 0.25
+center_of_model_grid onsite
+
+errtol 1E-6
+itmax 4
+presmooth 2
+postsmooth 2
+iinfo 0
