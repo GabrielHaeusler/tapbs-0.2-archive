@@ -1,27 +1,46 @@
 # Contributing (Archival)
 
-Thanks for helping preserve TAPBS.
+Thanks for helping preserve TAPBS 0.2.
 
-## Scope
-This repository is an archival publication. Changes should be minimal and aimed at:
-- Portability fixes (compiler warnings, 64-bit/ARM, Autotools refresh)
-- Reproducible builds (no algorithmic changes by default)
-- Documentation clarifications that do not alter scientific behavior
+This repository is an **archival re-release**, not an active development project.  
+Changes should focus on:
 
-## Build system
-TAPBS uses GNU Autotools. Typical workflow:
+- Build or portability fixes (compiler warnings, 64-bit/ARM)  
+- Autotools maintenance (configure updates)  
+- Documentation or reproducibility improvements  
 
-./configure
-make
-make install # optional
+Algorithmic or scientific behavior must not change without full documentation.
 
-If `configure` fails to detect your host, refresh `config.guess`/`config.sub` or run `autoreconf -fi`.
+---
+
+## Building locally
+
+TAPBS uses **GNU Autotools** and expects its historical dependencies (APBS 1.3 + MALOC 1.5) located under `external/`.
+
+```bash
+./configure --with-apbs="$HOME/.local/tapbs-0.2" --with-blas='-lblas -lgfortran'
+make -j
+make install  # optional
+```
+
+If `configure` fails to detect your platform:
+```bash
+autoreconf -fi
+```
+
+---
 
 ## Testing
-Include a small reproducer (an `example/` case and expected log/output).
-Numerical results should remain stable within the tolerances discussed in the manual.
 
-## License and authorship
-- Original code is **GPL-2.0-or-later** (see `COPYING`).
-- Preserve all copyright and attribution notices.
-- Do not relicense or remove author headers.
+Use one of the example inputs under `example/`.  
+Expected numerical values should match the reference outputs within floating-point tolerance.
+
+---
+
+## Licensing and attribution
+
+- TAPBS 0.2 is **GPL-2.0-or-later** (see `COPYING`).  
+- Preserve all copyright and authorship notices.  
+- Do not relicense or remove author headers.  
+
+Third-party code in `external/` retains its original licenses (see `THIRD_PARTY_NOTICES.md`).
