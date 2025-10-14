@@ -18,7 +18,7 @@ It vendors the exact third-party sources required to build TAPBS **as it worked 
 
 TAPBS applies four small patches to APBS 1.3 (in `src/patch_*`) to expose streamlined constructors, support precomputed maps, and reduce memory use.
 
-The historical installer **`installTAPBS.sh`** is also included verbatim for transparency. You don’t need to run it; the modern instructions below are safer.
+The historical installer **`installTAPBS.sh`** is also included verbatim as `scripts/installTAPBS_2011.sh` for transparency. You don’t need to run it; the modern instructions below are safer.
 
 ---
 
@@ -59,69 +59,72 @@ Example runs are provided under `example/`.
 
 ### Prerequisites
 
+**This script does not install OS packages for you.** Please pre-install dependencies:
+
 - C/C++ toolchain (`gcc`, `g++`)
 - Fortran compiler (`gfortran` recommended)
 - BLAS (system `libblas` or `libopenblas`)
 - `readline` development headers
 - GNU Autotools (already generated `configure` is shipped)
 
-### Install prefix
+You can use the commands:
+- macOS (Homebrew):
+  - `brew install gcc openblas`
+- Linux (examples):
+  - Debian/Ubuntu: `sudo apt-get install build-essential gfortran patch libopenblas-dev`
+  - Fedora/RHEL: `sudo dnf install gcc gcc-c++ gcc-gfortran patch openblas-devel`
+  - Arch: `sudo pacman -S base-devel gfortran openblas`
 
-```bash
-export PREFIX="$HOME/.local/tapbs-0.2"
-mkdir -p "$PREFIX"
-```
+### Semi-Automated Build (modern archival setup)
 
-### 1) Build MALOC 1.5
+Use the single cross-platform installer under `scripts/`:
+- `scripts/install_tapbs_modern.sh` — builds MALOC 1.5, patches & builds APBS 1.3, then builds TAPBS 0.2. Installs into a local prefix without touching system paths.
 
-```bash
-cd external/maloc-1.5
-./configure --prefix="$PREFIX"
-make -j && make install
-cd ../..
-```
+Simply run:
+- `bash scripts/install_tapbs_modern.sh`
+- Optional custom prefix: `PREFIX=/your/path bash scripts/install_tapbs_modern.sh`
 
-### 2) Patch and build APBS 1.3
 
-```bash
-cd external/apbs-1.3-source
-patch -p0 < ../../src/patch_vpbec
-patch -p0 < ../../src/patch_vpbeh
-patch -p0 < ../../src/patch_vpmgc
-patch -p0 < ../../src/patch_vpmgh
-./configure --prefix="$PREFIX" --with-blas='-lblas' --disable-openmp --disable-zlib
-make -j && make install
-cd ../..
-```
+**Notes:**
+> The script reproduces the exact autoconf cache hints and compiler flags required by the 2011 code, including disabling Python and tools in APBS and forcing OpenBLAS (`-lopenblas`).
+> MALOC (the Minimal Abstraction Layer for Object-oriented C) is an APBS/FETk dependency, not the C allocator.  
+  > The included historical version ensures compatibility with TAPBS’s APBS patches.
 
-### 3) Build TAPBS 0.2
+### Manual build (advanced, matches the script)
 
-```bash
-./configure --with-apbs="$PREFIX" --with-blas='-lblas -lgfortran'
-make -j
-make install   # optional; installs under $PREFIX if you add --prefix to configure
-```
+1) MALOC 1.5
+- `cd external/maloc-1.5`
+- `./configure --prefix="<prefix>"`
+- `make -j && make install`
 
-### Environment
+2) APBS 1.3 (patched)
+- `cd external/apbs-1.3-source`
+- `patch src/mg/vpmg.c            ../../src/patch_vpmgc`
+- `patch src/mg/apbs/vpmg.h       ../../src/patch_vpmgh`
+- `patch src/generic/vpbe.c       ../../src/patch_vpbec`
+- `patch src/generic/apbs/vpbe.h  ../../src/patch_vpbeh`
+- Environment (proven): set `CC`, `CXX`, `F77`; use `FFLAGS="-fallow-argument-mismatch -fno-second-underscore"`, and link with OpenBLAS.
+- Configure (exactly):
+  - `ac_cv_f77_compiler_gnu=yes ac_cv_f77_mangling="lower case, underscore, no extra underscore" ac_cv_lib_blas___dscal=yes ./configure --prefix="<prefix>" --with-blas='-lopenblas' --disable-openmp --disable-zlib --with-python=no --disable-tools`
+- Build & install:
+  - `make -j`
+  - `make py_path=: install`   (forces Python parts to no-op)
 
-```bash
-echo 'export PATH="'$PREFIX'/bin:$PATH"' >> ~/.bashrc
-echo 'export LD_LIBRARY_PATH="'$PREFIX'/lib:${LD_LIBRARY_PATH:-}"' >> ~/.bashrc
-# reload your shell or source ~/.bashrc
-```
+3) TAPBS 0.2
+- From repo root:
+  - `CPPFLAGS="-include unistd.h -include sys/times.h" CFLAGS="-include unistd.h -include sys/times.h" CXXFLAGS="-include unistd.h -include sys/times.h" ./configure --prefix="<prefix>/tapbs" --with-apbs="<prefix>" --with-blas='-lopenblas -lgfortran'`
+  - `make -j && make install`
 
-> **Note:** MALOC (the Minimal Abstraction Layer for Object-oriented C) is an APBS/FETk dependency, not the C allocator.  
-> The included historical version ensures compatibility with TAPBS’s APBS patches.
 
----
-
-## Cleaning and rebuilding
+### Cleaning and rebuilding
 
 ```bash
 make clean
 make distclean   # removes configuration
 autoreconf -fi   # only if you edit configure.in or Makefile.am
 ```
+
+- Then run the installer again or re-`./configure` with the same flags.
 
 ---
 
