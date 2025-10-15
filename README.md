@@ -61,19 +61,40 @@ Example runs are provided under `example/`.
 
 **This script does not install OS packages for you.** Please pre-install dependencies:
 
+#### Build dependencies
 - C/C++ toolchain (`gcc`, `g++`)
-- Fortran compiler (`gfortran` recommended)
-- BLAS (system `libblas` or `libopenblas`)
-- `readline` development headers
-- GNU Autotools (already generated `configure` is shipped)
+- Fortran compiler (`gfortran`)
+- **OpenBLAS headers & dev libs** (for linking)
+- `patch`
+- `readline` development headers (configure stage may probe)
+- GNU Autotools **not required** (generated `configure` is shipped)
 
-You can use the commands:
-- macOS (Homebrew):
-  - `brew install gcc openblas`
-- Linux (examples):
-  - Debian/Ubuntu: `sudo apt-get install build-essential gfortran patch libopenblas-dev`
-  - Fedora/RHEL: `sudo dnf install gcc gcc-c++ gcc-gfortran patch openblas-devel`
-  - Arch: `sudo pacman -S base-devel gfortran openblas`
+Examples:
+- **macOS (Homebrew)**: `brew install gcc openblas`
+- **Debian/Ubuntu**: `sudo apt-get install build-essential gfortran patch libopenblas-dev`
+- **Fedora/RHEL**: `sudo dnf install gcc gcc-c++ gcc-gfortran patch openblas-devel`
+- **Arch**: `sudo pacman -S base-devel gfortran openblas`
+
+#### Runtime dependencies
+- **OpenBLAS shared library** (`libopenblas.so`)
+- **libgfortran** runtime (often pulled in by OpenBLAS)
+
+Examples:
+- **Debian/Ubuntu**: `sudo apt-get install libopenblas0* libgfortran5`
+- **Fedora/RHEL**: `sudo dnf install openblas libgfortran`
+- **macOS**: provided by `brew install openblas` (the loader finds it via Homebrew’s rpath)
+
+> TAPBS links **APBS 1.3** and **MALOC 1.5** statically into the `tapbs` binary, while **OpenBLAS remains dynamic**. This keeps the historical core reproducible and lets systems receive OpenBLAS security/bug fixes without rebuilding TAPBS.
+> **BLAS note:** OpenBLAS is a BLAS implementation and satisfies the BLAS ABI. Some distros do **not** provide a `libblas.so` symlink via OpenBLAS by default.  
+> The modern installer **removes a historical `-lblas` linker flag** from TAPBS’s configure-time libs so only `-lopenblas` is needed.
+> If you build **manually** without the installer, either ensure a generic `libblas` is installed (e.g., Debian `libblas-dev`, Fedora `blas-devel`) **or** drop the flag before configuring:
+>
+> ```bash
+> # From repo root; TAPBS's generated configure hardcodes -lblas in APBS_LIBS
+> sed -i 's/ -lblas / /g' configure
+> ```
+
+---
 
 ### Semi-Automated Build (modern archival setup)
 
@@ -94,7 +115,7 @@ Simply run:
 
 1) MALOC 1.5
 - `cd external/maloc-1.5`
-- `./configure --prefix="<prefix>"`
+- `./configure --prefix="<prefix>" --enable-static --disable-shared`
 - `make -j && make install`
 
 2) APBS 1.3 (patched)
@@ -110,11 +131,17 @@ Simply run:
   - `make -j`
   - `make py_path=: install`   (forces Python parts to no-op)
 
+> **If you are not using the installer:** the generated `configure` in the TAPBS root historically injects `-lblas` into `APBS_LIBS`. On distros where OpenBLAS does **not** provide `libblas.so`, either install a generic BLAS (`libblas-dev`/`blas-devel`) **or** remove that flag before `./configure`:
+> ```bash
+> sed -i 's/ -lblas / /g' configure
+> ```
+
 3) TAPBS 0.2
 - From repo root:
   - `CPPFLAGS="-include unistd.h -include sys/times.h" CFLAGS="-include unistd.h -include sys/times.h" CXXFLAGS="-include unistd.h -include sys/times.h" ./configure --prefix="<prefix>/tapbs" --with-apbs="<prefix>" --with-blas='-lopenblas -lgfortran'`
   - `make -j && make install`
 
+---
 
 ### Cleaning and rebuilding
 

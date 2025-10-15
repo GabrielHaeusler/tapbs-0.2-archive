@@ -20,69 +20,76 @@ cores() {
   fi
 }
 
-# Find exact compiler binaries and export them.
+# Find exact compiler binaries and export them (portable).
 find_and_export_toolchain() {
-  local os ver_list=("15" "14" "13" "12" "11" "10" "9")
-  os="$(uname -s)"
+  local os; os="$(uname -s)"
+
+  # Honor user overrides if already set (CC/CXX/FC/F77). Don't second-guess.
+  if [[ -n "${CC:-}" || -n "${CXX:-}" || -n "${FC:-}" || -n "${F77:-}" ]]; then
+    : "${CC:=cc}"
+    : "${CXX:=c++}"
+    : "${FC:=gfortran}"  # APBS 1.3 probes F77; set both.
+    : "${F77:=gfortran}"
+    say "Using user-specified toolchain: CC=$CC CXX=$CXX FC=$FC F77=$F77"
+    return
+  fi
 
   if [[ "$os" == "Darwin" ]]; then
+    # macOS keeps Homebrew’s GCC versioned; keep your original Homebrew block.
     command -v brew >/dev/null 2>&1 || die "Homebrew is required. Install it first."
-    local gcc_prefix
+    local gcc_prefix gc gp gf
     gcc_prefix="$(brew --prefix gcc 2>/dev/null || true)"
     [[ -n "$gcc_prefix" && -d "$gcc_prefix/bin" ]] || die "Missing dependency: brew install gcc"
-
-    local gc="" gp="" gf=""
-    for v in "${ver_list[@]}"; do
+    for v in 15 14 13 12 11 10 9; do
       [[ -x "$gcc_prefix/bin/gcc-$v"      ]] && gc="$gcc_prefix/bin/gcc-$v"
       [[ -x "$gcc_prefix/bin/g++-$v"      ]] && gp="$gcc_prefix/bin/g++-$v"
       [[ -x "$gcc_prefix/bin/gfortran-$v" ]] && gf="$gcc_prefix/bin/gfortran-$v"
-      if [[ -n "$gc" && -n "$gp" && -n "$gf" ]]; then break; fi
+      [[ -n "$gc" && -n "$gp" && -n "$gf" ]] && break
     done
-    [[ -n "$gc" && -n "$gp" && -n "$gf" ]] || die "Homebrew gcc not found (looked for gcc-N, g++-N, gfortran-N). Try: brew install gcc"
-
-    export CC="$gc"
-    export CXX="$gp"
-    export F77="$gf"
+    [[ -n "$gc" && -n "$gp" && -n "$gf" ]] || die "brew gcc not found. Try: brew install gcc"
+    export CC="$gc" CXX="$gp" FC="$gf" F77="$gf"
   else
-    # Linux (and other UNIX): prefer versioned first, then unversioned.
-    local gc="" gp="" gf=""
-    for v in "${ver_list[@]}"; do
-      command -v "gcc-$v"      >/dev/null 2>&1 && { gc="$(command -v gcc-$v)"; break; }
-    done
-    [[ -z "$gc" ]] && gc="$(command -v gcc || true)"
-    for v in "${ver_list[@]}"; do
-      command -v "g++-$v"      >/dev/null 2>&1 && { gp="$(command -v g++-$v)"; break; }
-    done
-    [[ -z "$gp" ]] && gp="$(command -v g++ || true)"
-    for v in "${ver_list[@]}"; do
-      command -v "gfortran-$v" >/dev/null 2>&1 && { gf="$(command -v gfortran-$v)"; break; }
-    done
-    [[ -z "$gf" ]] && gf="$(command -v gfortran || true)"
-
-    [[ -n "$gc" && -n "$gp" && -n "$gf" ]] || die "Could not find GCC/g++/gfortran toolchain on PATH."
-    export CC="$gc"
-    export CXX="$gp"
-    export F77="$gf"
+    # Linux: prefer unversioned compilers per GNU/Autoconf conventions.
+    # Fedora provides these via packages: gcc, gcc-c++, gcc-gfortran.
+    export CC="${CC:-$(command -v gcc || command -v cc || true)}"
+    export CXX="${CXX:-$(command -v g++ || command -v c++ || true)}"
+    export FC="${FC:-$(command -v gfortran || true)}"
+    export F77="${F77:-$FC}"
+    [[ -n "$CC" && -n "$CXX" && -n "$F77" ]] || die "Missing GCC toolchain (install gcc gcc-c++ gcc-gfortran)."
   fi
 
   say "Using CC=$CC"
   say "Using CXX=$CXX"
+  say "Using FC=$FC"
   say "Using F77=$F77"
 }
 
 # Detect OpenBLAS location (macOS=Homebrew; Linux=system unless OPENBLAS_PREFIX set)
 configure_blas_flags() {
   local os; os="$(uname -s)"
-  if [[ "$os" == "Darwin" ]]; then
-    local obp
-    obp="$(brew --prefix openblas 2>/dev/null || true)"
-    [[ -n "$obp" ]] || die "Missing dependency: brew install openblas"
-    export LDFLAGS="-L${obp}/lib"
+  # Respect user-provided flags.
+  if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists openblas; then
+    local ob_cflags ob_libs
+    ob_cflags="$(pkg-config --cflags openblas)"
+    ob_libs="$(pkg-config --libs openblas)"
+    export CPPFLAGS="${CPPFLAGS:-} ${ob_cflags}"
+    export LDFLAGS="${LDFLAGS:-} ${ob_libs}"
+    say "Found OpenBLAS via pkg-config."
   else
-    # On Linux, system link paths typically find -lopenblas without -L/-I.
-    # Respect OPENBLAS_PREFIX if the user set it.
-    if [[ -n "${OPENBLAS_PREFIX:-}" ]]; then
-      export LDFLAGS="-L${OPENBLAS_PREFIX}/lib ${LDFLAGS:-}"
+    if [[ "$os" == "Darwin" ]]; then
+      local obp
+      obp="$(brew --prefix openblas 2>/dev/null || true)" || true
+      [[ -n "$obp" ]] || die "Missing dependency: brew install openblas"
+      export LDFLAGS="-L${obp}/lib ${LDFLAGS:-}"
+      export CPPFLAGS="-I${obp}/include ${CPPFLAGS:-}"
+    else
+      # Linux: usually -lopenblas works if openblas-devel is installed.
+      # Respect OPENBLAS_PREFIX if user provided it.
+      if [[ -n "${OPENBLAS_PREFIX:-}" ]]; then
+        export LDFLAGS="-L${OPENBLAS_PREFIX}/lib ${LDFLAGS:-}"
+        export CPPFLAGS="-I${OPENBLAS_PREFIX}/include ${CPPFLAGS:-}"
+      fi
+      # Don’t force anything else; configure step passes '-lopenblas'.
     fi
   fi
 }
@@ -106,14 +113,14 @@ configure_blas_flags
 say "Install prefix: $PREFIX"
 
 # Historical flags that make the 2011 stack happy
-export FFLAGS="-fallow-argument-mismatch -fno-second-underscore"
-export CFLAGS="-Wno-implicit-int -Wno-error=implicit-function-declaration"
+export FFLAGS="-O3 -fallow-argument-mismatch -fno-second-underscore"
+export CFLAGS="-O3 -Wno-implicit-int -Wno-error=implicit-function-declaration"
 # export CXXFLAGS="-O3"
 
 # ===== MALOC 1.5 =====
 say "==== MALOC 1.5 ===="
 pushd external/maloc-1.5 >/dev/null
-  ./configure --prefix="$PREFIX"
+  ./configure --prefix="$PREFIX" --enable-static --disable-shared
   make
   make install
 popd >/dev/null
@@ -136,7 +143,9 @@ pushd external/apbs-1.3-source >/dev/null
       --disable-openmp \
       --disable-zlib \
       --with-python=no \
-      --disable-tools
+      --disable-tools \
+      --enable-static \
+      --disable-shared
 
   make
   # Force python wrappers to no-op during install.
@@ -144,6 +153,11 @@ pushd external/apbs-1.3-source >/dev/null
 popd >/dev/null
 
 # ===== TAPBS 0.2 =====
+
+# Make configure respect --with-blas by replacing the hardcoded -lblas with ${BLAS}
+# (configure sets BLAS from --with-blas earlier)
+sed -i.bak '/APBS_LIBS="/ s/-lblas/${BLAS}/' configure
+
 say "==== TAPBS 0.2 ===="
 TP_CPPFLAGS="-include unistd.h -include sys/times.h"
 CPPFLAGS="$TP_CPPFLAGS" \
@@ -152,18 +166,10 @@ CXXFLAGS="$TP_CPPFLAGS" \
 ./configure \
     --prefix="$PREFIX/tapbs" \
     --with-apbs="$PREFIX" \
-    --with-blas='-lopenblas -lgfortran'
+    --with-blas='-lopenblas -lgfortran' \
+    LIBS='-lopenblas -lgfortran'
 
 make
 make install
 
 say "✅ Success. Binaries are under: $PREFIX/tapbs/bin"
-if [[ "$OS" == "Darwin" ]]; then
-  echo "Add to your shell:"
-  echo "  export PATH=\"$PREFIX/tapbs/bin:\$PATH\""
-  echo "  export DYLD_FALLBACK_LIBRARY_PATH=\"$PREFIX/lib:\${DYLD_FALLBACK_LIBRARY_PATH:-}\""
-else
-  echo "Add to your shell:"
-  echo "  export PATH=\"$PREFIX/tapbs/bin:\$PATH\""
-  echo "  export LD_LIBRARY_PATH=\"$PREFIX/lib:\${LD_LIBRARY_PATH:-}\""
-fi
